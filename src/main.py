@@ -15,6 +15,7 @@ app = FastAPI()
 def read_root():
     return {"Hello": "World"}
 
+# Redis credentialsi used to connect with Redis message broker
 class RedisResource:
     REDIS_QUEUE_LOCATION = os.getenv('REDIS_QUEUE', 'localhost')
     CHUNK_QUEUE = 'queue:chunk'
@@ -29,6 +30,7 @@ class RedisResource:
 
     conn = redis.Redis(host=host, *port)
 
+# create a subscriber for receiving message from workers
 sub = RedisResource.conn.pubsub()
 sub.subscribe("encode")
 sub.subscribe("chunk")
@@ -37,11 +39,13 @@ sub.subscribe("thumbnail")
 class Item(BaseModel):
     name: str
 
+# push chunking work into workqueue
 @app.post("/chunk")
 def chunk(item: Item):
     RedisResource.conn.rpush(
         RedisResource.CHUNK_QUEUE,
         json.dumps(item.__dict__))
+    #loop to detect message publish by workers
     while True:
         msg = sub.get_message()
         if msg:
@@ -49,11 +53,13 @@ def chunk(item: Item):
             break
     return msg
 
+# push encode work into workqueue
 @app.post("/encode")
-def chunk(item: Item):
+def encode(item: Item):
     RedisResource.conn.rpush(
         RedisResource.ENCODE_QUEUE,
         json.dumps(item.__dict__))
+    #loop to detect message publish by workers
     while True:
         msg = sub.get_message()
         if msg:
@@ -61,11 +67,13 @@ def chunk(item: Item):
             break
     return msg
 
+# push thumbnail work into workqueue
 @app.post("/thumbnail")
-def chunk(item: Item):
+def thumbnail(item: Item):
     RedisResource.conn.rpush(
         RedisResource.THUMBNAIL_QUEUE,
         json.dumps(item.__dict__))
+    #loop to detect message publish by workers
     while True:
         msg = sub.get_message()
         if msg:
