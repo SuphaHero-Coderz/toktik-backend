@@ -29,6 +29,11 @@ class RedisResource:
 
     conn = redis.Redis(host=host, *port)
 
+sub = RedisResource.conn.pubsub()
+sub.subscribe("encode")
+sub.subscribe("chunk")
+sub.subscribe("thumbnail")
+
 class Item(BaseModel):
     name: str
 
@@ -37,21 +42,36 @@ def chunk(item: Item):
     RedisResource.conn.rpush(
         RedisResource.CHUNK_QUEUE,
         json.dumps(item.__dict__))
-    return item
+    while True:
+        msg = sub.get_message()
+        if msg:
+            print(f"new message in channel {msg['channel']}: {msg['data']}")
+            break
+    return msg
 
 @app.post("/encode")
 def chunk(item: Item):
     RedisResource.conn.rpush(
         RedisResource.ENCODE_QUEUE,
         json.dumps(item.__dict__))
-    return item
+    while True:
+        msg = sub.get_message()
+        if msg:
+            print(f"new message in channel {msg['channel']}: {msg['data']}")
+            break
+    return msg
 
 @app.post("/thumbnail")
 def chunk(item: Item):
     RedisResource.conn.rpush(
         RedisResource.THUMBNAIL_QUEUE,
         json.dumps(item.__dict__))
-    return item
+    while True:
+        msg = sub.get_message()
+        if msg:
+            print(f"new message in channel {msg['channel']}: {msg['data']}")
+            break
+    return msg
 
 load_dotenv()
 
