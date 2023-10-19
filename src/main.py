@@ -1,12 +1,86 @@
+
+import json
+import os
+import redis
 from fastapi import FastAPI
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import os
 import boto3
 from botocore.exceptions import NoCredentialsError
 from botocore.client import Config
 
 app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
+# Redis credentialsi used to connect with Redis message broker
+class RedisResource:
+    REDIS_QUEUE_LOCATION = os.getenv('REDIS_QUEUE', 'localhost')
+    CHUNK_QUEUE = 'queue:chunk'
+    ENCODE_QUEUE = 'queue:encode'
+    THUMBNAIL_QUEUE = 'queue:thumbnail'
+
+    host, *port_info = REDIS_QUEUE_LOCATION.split(':')
+    port = tuple()
+    if port_info:
+        port, *_ = port_info
+        port = (int(port),)
+
+    conn = redis.Redis(host=host, *port)
+
+# create a subscriber for receiving message from workers
+sub = RedisResource.conn.pubsub()
+sub.subscribe("encode")
+sub.subscribe("chunk")
+sub.subscribe("thumbnail")
+
+class Item(BaseModel):
+    name: str
+
+# push chunking work into workqueue
+@app.post("/chunk")
+def chunk(item: Item):
+    RedisResource.conn.rpush(
+        RedisResource.CHUNK_QUEUE,
+        json.dumps(item.__dict__))
+    #loop to detect message publish by workers
+    while True:
+        msg = sub.get_message()
+        if msg:
+            print(f"new message in channel {msg['channel']}: {msg['data']}")
+            break
+    return msg
+
+# push encode work into workqueue
+@app.post("/encode")
+def encode(item: Item):
+    RedisResource.conn.rpush(
+        RedisResource.ENCODE_QUEUE,
+        json.dumps(item.__dict__))
+    #loop to detect message publish by workers
+    while True:
+        msg = sub.get_message()
+        if msg:
+            print(f"new message in channel {msg['channel']}: {msg['data']}")
+            break
+    return msg
+
+# push thumbnail work into workqueue
+@app.post("/thumbnail")
+def thumbnail(item: Item):
+    RedisResource.conn.rpush(
+        RedisResource.THUMBNAIL_QUEUE,
+        json.dumps(item.__dict__))
+    #loop to detect message publish by workers
+    while True:
+        msg = sub.get_message()
+        if msg:
+            print(f"new message in channel {msg['channel']}: {msg['data']}")
+            break
+    return msg
 
 load_dotenv()
 
@@ -46,4 +120,3 @@ async def generate_presigned_url(object_key: str):
 
     except NoCredentialsError:
         return {"error": "AWS credentials not available."}
-
