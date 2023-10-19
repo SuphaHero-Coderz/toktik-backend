@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 import boto3
 from botocore.exceptions import NoCredentialsError
+from botocore.client import Config
 
 app = FastAPI()
 
@@ -31,12 +32,14 @@ async def generate_presigned_url(object_key: str):
     try:
         # Generate a presigned URL for the S3 object
         presigned_url = s3.generate_presigned_url(
-            'get_object',
+            'put_object',
             Params={
                 'Bucket': os.getenv("BUCKET_NAME"),
                 'Key': object_key,
+                'ContentType': 'video/*'
             },
-            ExpiresIn=3600  # The URL will expire in 1 hour
+            ExpiresIn=3600,
+            HttpMethod="PUT"
         )
 
         return {"presigned_url": presigned_url}
