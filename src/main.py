@@ -2,21 +2,39 @@
 import json
 import os
 import redis
+import boto3
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import boto3
 from botocore.exceptions import NoCredentialsError
-from botocore.client import Config
 
 app = FastAPI()
+
+load_dotenv()
+
+s3 = boto3.client('s3', 
+    aws_access_key_id = os.getenv("AWS_ACCESS_KEY"),
+    aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY"),
+)
+
+origins = [
+    "http://localhost:3000"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
 
-# Redis credentialsi used to connect with Redis message broker
+# Redis credentials used to connect with Redis message broker
 class RedisResource:
     REDIS_QUEUE_LOCATION = os.getenv('REDIS_QUEUE', 'localhost')
     CHUNK_QUEUE = 'queue:chunk'
@@ -82,27 +100,11 @@ def thumbnail(item: Item):
             break
     return msg
 
-load_dotenv()
-
-s3 = boto3.client('s3', 
-    aws_access_key_id = os.getenv("AWS_ACCESS_KEY"),
-    aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY"),
-)
-
-origins = [
-    "http://localhost:3000"
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 @app.get("/generate_presigned_url/{object_key}")
 async def generate_presigned_url(object_key: str):
+    """
+    Generates a presigned URL for upload to S3
+    """
     try:
         # Generate a presigned URL for the S3 object
         presigned_url = s3.generate_presigned_url(
