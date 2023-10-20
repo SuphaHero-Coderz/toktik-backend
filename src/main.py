@@ -58,6 +58,9 @@ sub.subscribe("thumbnail")
 class Item(BaseModel):
     name: str
 
+class VideoInformation(BaseModel):
+    object_key: str
+
 # push chunking work into workqueue
 @app.post("/chunk")
 def chunk(item: Item):
@@ -122,3 +125,8 @@ async def generate_presigned_url(object_key: str):
 
     except NoCredentialsError:
         return {"error": "AWS credentials not available."}
+
+@app.post("/process_video/")
+async def process_video(vid_info: VideoInformation):
+    object_key = vid_info.object_key
+    encode(Item(object_key))
