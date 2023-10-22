@@ -1,5 +1,7 @@
 import json
 import os
+
+import fastapi
 import redis
 import boto3
 from fastapi import FastAPI
@@ -7,8 +9,17 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from botocore.exceptions import NoCredentialsError
+import schemas as _schemas
+import fastapi as _fastapi
+import db_services as _services
+import sqlalchemy.orm as _orm
+import fastapi.security as _security
+from typing import List
+
 
 app = FastAPI()
+
+_services.create_database()
 
 load_dotenv()
 
@@ -33,7 +44,7 @@ app.add_middleware(
 def read_root():
     return {"Hello": "World"}
 
-# Redis credentials used to connect with Redis message broker
+#Redis credentials used to connect with Redis message broker
 class RedisResource:
     REDIS_QUEUE_LOCATION = os.getenv('REDIS_QUEUE', 'localhost')
     CHUNK_QUEUE = 'queue:chunk'
@@ -48,6 +59,7 @@ class RedisResource:
 
     conn = redis.Redis(host=host, *port)
 
+
 # create a subscriber for receiving message from workers
 sub = RedisResource.conn.pubsub(ignore_subscribe_messages=True)
 sub.subscribe("encode")
@@ -57,7 +69,7 @@ sub.subscribe("thumbnail")
 class VideoInformation(BaseModel):
     object_key: str
 
-# push chunking work into workqueue
+#push chunking work into workqueue
 @app.post("/chunk")
 def chunk(vid_info: VideoInformation):
     RedisResource.conn.rpush(
@@ -126,7 +138,77 @@ async def generate_presigned_url(object_key: str):
 async def process_video(vid_info: VideoInformation):
     msg = encode(vid_info)
     msg_data = json.loads(msg['data'])
-
     if msg_data['status'] == 1:
         thumbnail(vid_info)
         chunk(vid_info)
+
+@app.post("/api/users")
+async  def create_user(user: _schemas.UserCreate, db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    db_user = await _services.get_user_by_username(user.username, db)
+    if db_user:
+        raise _fastapi.HTTPException(status_code=400, detail="Username already in use")
+    return await _services.create_user(user, db)
+
+@app.post("/api/token")
+async def generate_token(form_data: _security.OAuth2PasswordRequestForm = fastapi.Depends(),
+                         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    user = await _services.authenticate_user(username=form_data.username, password=form_data.password, db=db)
+    if not user:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    return await _services.create_token(user)
+
+@app.get("/api/users/me", response_model=_schemas.User)
+async def get_current_user(user: _schemas.User = _fastapi.Depends(_services.get_current_user)):
+    return user
+
+@app.get("/api/users/{user_id}", response_model=_schemas.User)
+async def get_user(
+        user_id: int,
+        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    return await _services.get_user(user_id=user_id, current_user=current_user, db=db)
+
+@app.delete("/api/users/{user_id}", status_code=204)
+async def delete_user(
+        user_id: int,
+        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    await _services.delete_user(user_id=user_id, current_user=current_user, db=db)
+    return {"message", "Successfully Deleted"}
+
+@app.post("/api/videos", response_model=_schemas.Video)
+async def create_video(
+        video: _schemas.VideoCreate,
+        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    return await _services.create_video(current_user=current_user, db=db, video=video)
+
+@app.get("/api/videos", response_model=List[_schemas.Video])
+async def get_videos(
+        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    return await _services.get_videos(current_user=current_user, db=db)
+
+@app.get("/api/videos/{video_id}", response_model=_schemas.Video)
+async def get_video(
+        video_id: int,
+        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    return await _services.get_video(video_id=video_id, current_user=current_user, db=db)
+
+@app.delete("/api/videos/{video_id}", status_code=204)
+async def delete_video(
+        video_id: int,
+        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+        await _services.delete_video(video_id=video_id, current_user=current_user, db=db)
+        return {"message", "Successfully Deleted"}
+
+@app.put("/api/videos/{video_id}", status_code=200)
+async def update_video(
+        video_id: int,
+        video: _schemas.VideoCreate,
+        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+        await _services.update_video(video_id=video_id, video=video, current_user=current_user, db=db)
+        return {"message", "Successfully Updated"}
