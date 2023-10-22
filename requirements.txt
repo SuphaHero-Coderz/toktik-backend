@@ -8,3 +8,4 @@ passlib
 sqlalchemy
 pyjwt
 psycopg2-binary
+python-multipart

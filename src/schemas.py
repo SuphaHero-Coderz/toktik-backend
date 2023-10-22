@@ -9,12 +9,14 @@ class UserCreate(_UserBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 class User(_UserBase):
     id: int
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 class _VideoBase(_pydantic.BaseModel):
     object_key: str
