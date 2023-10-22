@@ -83,6 +83,49 @@ async def delete_user(user_id: int, current_user: _schemas.User, db: _orm.Sessio
     db.delete(user)
     db.commit()
 
+async def create_video(video: _schemas.VideoCreate, current_user: _schemas.User, db: _orm.Session):
+    video_obj = _models.Video(**video.model_dump(), owner_id=current_user.id)
+    db.add(video_obj)
+    db.commit()
+    db.refresh(video_obj)
+    return video_obj
+async def select_video(video_id: int, current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    video = db.query(_models.Video).filter_by(owner_id=current_user.id).filter(_models.Video.id == video_id).first()
+    if video is None:
+        raise _fastapi.HTTPException(status_code=404, detail="Video not found")
+    return video
+
+async def get_videos(current_user: _schemas.User, db: _orm.Session):
+    videos = db.query(_models.Video).filter_by(owner_id=current_user.id)
+    return list(map(_schemas.Video.model_validate, videos))
+async def get_video(video_id: int , current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    video = await select_video(video_id=video_id , current_user=current_user, db=db)
+    return _schemas.Video.model_validate(video)
+
+async def update_video(video_id: int, video: _schemas.VideoCreate, current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    video_db = await select_video(video_id=video_id , current_user=current_user, db=db)
+    video_db.object_key = video.object_key
+    video_db.video_name = video.video_name
+    video_db.video_description =  video.video_description
+
+    db.commit()
+    db.refresh(video_db)
+
+    return _schemas.Video.model_validate(video_db)
+
+async def delete_video(video_id: int,  current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    video = await select_video(video_id=video_id , current_user=current_user, db=db)
+    db.delete(video)
+    db.commit()
+
 
 
 

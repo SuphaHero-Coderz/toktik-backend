@@ -2,6 +2,7 @@ import pydantic as _pydantic
 import datetime as _dt
 
 class _UserBase(_pydantic.BaseModel):
+    model_config = _pydantic.ConfigDict(from_attributes = True)
     username: str
 
 class UserCreate(_UserBase):
@@ -16,9 +17,10 @@ class User(_UserBase):
 
     class Config:
         orm_mode = True
-        from_attributes = True
+        from_attributes=True
 
 class _VideoBase(_pydantic.BaseModel):
+    model_config = _pydantic.ConfigDict(from_attributes=True)
     object_key: str
     video_name: str
     video_description: str
@@ -31,5 +33,7 @@ class Video(_VideoBase):
     owner_id: int
     date_uploaded: _dt.datetime
 
+
     class Config:
         orm_mode = True
+        from_attributes = True
