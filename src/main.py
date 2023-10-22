@@ -1,4 +1,3 @@
-
 import json
 import os
 import redis
@@ -50,23 +49,20 @@ class RedisResource:
     conn = redis.Redis(host=host, *port)
 
 # create a subscriber for receiving message from workers
-sub = RedisResource.conn.pubsub()
+sub = RedisResource.conn.pubsub(ignore_subscribe_messages=True)
 sub.subscribe("encode")
 sub.subscribe("chunk")
 sub.subscribe("thumbnail")
-
-class Item(BaseModel):
-    name: str
 
 class VideoInformation(BaseModel):
     object_key: str
 
 # push chunking work into workqueue
 @app.post("/chunk")
-def chunk(item: Item):
+def chunk(vid_info: VideoInformation):
     RedisResource.conn.rpush(
         RedisResource.CHUNK_QUEUE,
-        json.dumps(item.__dict__))
+        json.dumps(vid_info.__dict__))
     #loop to detect message publish by workers
     while True:
         msg = sub.get_message()
@@ -77,10 +73,10 @@ def chunk(item: Item):
 
 # push encode work into workqueue
 @app.post("/encode")
-def encode(item: Item):
+def encode(vid_info: VideoInformation):
     RedisResource.conn.rpush(
         RedisResource.ENCODE_QUEUE,
-        json.dumps(item.__dict__))
+        json.dumps(vid_info.__dict__))
     #loop to detect message publish by workers
     while True:
         msg = sub.get_message()
@@ -91,10 +87,10 @@ def encode(item: Item):
 
 # push thumbnail work into workqueue
 @app.post("/thumbnail")
-def thumbnail(item: Item):
+def thumbnail(vid_info: VideoInformation):
     RedisResource.conn.rpush(
         RedisResource.THUMBNAIL_QUEUE,
-        json.dumps(item.__dict__))
+        json.dumps(vid_info.__dict__))
     #loop to detect message publish by workers
     while True:
         msg = sub.get_message()
@@ -128,5 +124,9 @@ async def generate_presigned_url(object_key: str):
 
 @app.post("/process_video/")
 async def process_video(vid_info: VideoInformation):
-    object_key = vid_info.object_key
-    encode(Item(object_key))
+    msg = encode(vid_info)
+    msg_data = json.loads(msg['data'])
+
+    if msg_data['status'] == 1:
+        thumbnail(vid_info)
+        chunk(vid_info)
