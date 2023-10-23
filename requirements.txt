@@ -4,3 +4,8 @@ uvicorn
 redis
 python-dotenv
 boto3
+passlib
+sqlalchemy
+pyjwt
+psycopg2-binary
+python-multipart
