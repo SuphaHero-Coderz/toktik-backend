@@ -4,18 +4,28 @@ import os
 import fastapi
 import redis
 import boto3
+import botocore
+import base64
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 from botocore.exceptions import NoCredentialsError
+from botocore.signers import CloudFrontSigner
+from datetime import datetime, timedelta
+
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+
 import schemas as _schemas
 import fastapi as _fastapi
 import db_services as _services
 import sqlalchemy.orm as _orm
 import fastapi.security as _security
 from typing import List
-
 
 app = FastAPI()
 
@@ -141,6 +151,33 @@ async def process_video(vid_info: VideoInformation):
     if msg_data['status'] == 1:
         thumbnail(vid_info)
         chunk(vid_info)
+
+
+@app.get("/view_video/{object_key}")
+async def view_video(object_key: str):
+    def rsa_signer(message):
+        cloudfront_private_key_base64 = os.getenv("CLOUDFRONT_PRIVATE_KEY_BASE64")
+        private_key = serialization.load_pem_private_key(
+            base64.b64decode(cloudfront_private_key_base64),
+            password=None,
+            backend=default_backend()
+        )
+        return private_key.sign(message, padding.PKCS1v15(), hashes.SHA1())
+
+    def sign_m3u8(object_key: str):
+        key_id = os.getenv("CLOUDFRONT_KEY_ID")
+        cloudfront_origin = os.getenv("CLOUDFRONT_ORIGIN_URL")
+        url_to_chunks = f"{cloudfront_origin}/{object_key}/chunks/"
+        expire_date = datetime.utcnow() + timedelta(minutes=2)
+        cloudfront_signer = CloudFrontSigner(key_id, rsa_signer)
+        signed_url = cloudfront_signer.generate_presigned_url(url_to_chunks + "encoded.m3u8", date_less_than=expire_date)
+        return signed_url
+
+    signed_m3u8_url = sign_m3u8(object_key)
+    token = "?" + signed_m3u8_url.split("?")[1]
+    m3u8_url = signed_m3u8_url.split("?")[0]
+
+    return { "m3u8_url" : m3u8_url, "token" : token }
 
 @app.post("/api/users")
 async  def create_user(user: _schemas.UserCreate, db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
