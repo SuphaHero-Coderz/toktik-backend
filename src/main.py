@@ -193,7 +193,8 @@ async  def create_user(user: _schemas.UserCreate, db: _orm.Session = _fastapi.De
     db_user = await _services.get_user_by_username(user.username, db)
     if db_user:
         raise _fastapi.HTTPException(status_code=400, detail="Username already in use")
-    return await _services.create_user(user, db)
+    user = await _services.create_user(user, db)
+    return await _services.create_token(user)
 
 @app.post("/api/token")
 async def generate_token(form_data: _security.OAuth2PasswordRequestForm = fastapi.Depends(),
