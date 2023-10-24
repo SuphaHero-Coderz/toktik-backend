@@ -152,7 +152,6 @@ async def process_video(vid_info: VideoInformation):
         thumbnail(vid_info)
         chunk(vid_info)
 
-
 @app.get("/view_video/{object_key}")
 async def view_video(object_key: str):
     def rsa_signer(message):

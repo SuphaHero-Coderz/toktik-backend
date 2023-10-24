@@ -24,5 +24,6 @@ class Video(_database.Base):
     video_name = _sql.Column(_sql.String, index=True)
     video_description = _sql.Column(_sql.String, default="")
     date_uploaded = _sql.Column(_sql.DateTime, default=_dt.datetime.utcnow)
+    processed = _sql.Column(_sql.Boolean, default=False)
 
     owner = _orm.relationship("User", back_populates="videos")
