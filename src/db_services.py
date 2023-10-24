@@ -87,7 +87,7 @@ async def delete_user(user_id: int, current_user: _schemas.User, db: _orm.Sessio
 async def create_video(video: _schemas.VideoCreate, current_user: _schemas.User, db: _orm.Session):
     if current_user is None:
         raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
-    video_obj = _models.Video(object_key=video.object_key, video_name = video.video_name, video_description=video.video_description, processed=False, owner_id=current_user.id)
+    video_obj = _models.Video(object_key=video.object_key, video_name = video.video_name, video_description=video.video_description, video_thumbnail=video.video_thumbnail, processed=False, owner_id=current_user.id)
     db.add(video_obj)
     db.commit()
     db.refresh(video_obj)

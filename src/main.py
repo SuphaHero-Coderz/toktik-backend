@@ -155,6 +155,7 @@ async def process_video(
             object_key = vid_info.object_key,
             video_name = vid_info.video_name,
             video_description = vid_info.video_description,
+            video_thumbnail = f"{os.getenv('CLOUDFRONT_ORIGIN_URL')}/{vid_info.object_key}/thumbnail.jpg",
             processed = False)
     video = await _services.create_video(db=db, current_user=current_user, video=vid_info_db)
     msg = encode(vid_info)
