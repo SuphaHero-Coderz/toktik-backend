@@ -1,3 +1,4 @@
+from typing import Optional
 import pydantic as _pydantic
 import datetime as _dt
 
@@ -30,7 +31,7 @@ class VideoCreate(_VideoBase):
     pass
 
 class Video(_VideoBase):
-    id: int
+    id: Optional[int] = _pydantic.Field(default=None, primary_key=True)
     owner_id: int
     date_uploaded: _dt.datetime
 

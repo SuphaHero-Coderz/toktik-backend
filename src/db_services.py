@@ -13,6 +13,7 @@ load_dotenv()
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 oauth2schema = _security.OAuth2PasswordBearer(tokenUrl="/api/token")
+
 def create_database():
     return _database.Base.metadata.create_all(bind=_database.engine)
 
@@ -84,11 +85,14 @@ async def delete_user(user_id: int, current_user: _schemas.User, db: _orm.Sessio
     db.commit()
 
 async def create_video(video: _schemas.VideoCreate, current_user: _schemas.User, db: _orm.Session):
-    video_obj = _models.Video(**video.model_dump(), owner_id=current_user.id)
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    video_obj = _models.Video(object_key=video.object_key, video_name = video.video_name, video_description=video.video_description, processed=False, owner_id=current_user.id)
     db.add(video_obj)
     db.commit()
     db.refresh(video_obj)
     return video_obj
+
 async def select_video(video_id: int, current_user: _schemas.User, db: _orm.Session):
     if current_user is None:
         raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
@@ -128,7 +132,7 @@ async def update_video_status(video_id: int, db: _orm.Session):
     video = db.query(_models.Video).filter(_models.Video.id == video_id).first()
 
     if video is None:
-        raise _fastapi.HTTPException(status_code=404, detail"Video not found")
+        raise _fastapi.HTTPException(status_code=404, detail="Video not found")
 
     video.processed = True
 

@@ -147,20 +147,23 @@ async def generate_presigned_url(object_key: str):
         return {"error": "AWS credentials not available."}
 
 @app.post("/process_video/")
-async def process_video(vid_info: VideoInformation):
+async def process_video(
+        vid_info: VideoInformation,
+        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
     vid_info_db = _schemas.VideoCreate(
             object_key = vid_info.object_key,
             video_name = vid_info.video_name,
-            video_description = vid_info.video_description
-    )
+            video_description = vid_info.video_description,
+            processed = False)
+    video = await _services.create_video(db=db, current_user=current_user, video=vid_info_db)
     msg = encode(vid_info)
-    video = await create_video(vid_info_db)
     msg_data = json.loads(msg['data'])
     if msg_data['status'] == 1:
         thumbnail(vid_info)
         chunk(vid_info)
 
-    await _services.update_video_status(video.video_id, _services.get_db_session())
+    await _services.update_video_status(video_id=video.id, db=db)
 
 @app.get("/view_video/{object_key}")
 async def view_video(object_key: str):
