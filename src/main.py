@@ -78,6 +78,8 @@ sub.subscribe("thumbnail")
 
 class VideoInformation(BaseModel):
     object_key: str
+    video_name: str
+    video_description: str
 
 #push chunking work into workqueue
 @app.post("/chunk")
@@ -146,11 +148,19 @@ async def generate_presigned_url(object_key: str):
 
 @app.post("/process_video/")
 async def process_video(vid_info: VideoInformation):
+    vid_info_db = _schemas.VideoCreate(
+            object_key = vid_info.object_key,
+            video_name = vid_info.video_name,
+            video_description = vid_info.video_description
+    )
     msg = encode(vid_info)
+    video = await create_video(vid_info_db)
     msg_data = json.loads(msg['data'])
     if msg_data['status'] == 1:
         thumbnail(vid_info)
         chunk(vid_info)
+
+    await _services.update_video_status(video.video_id, _services.get_db_session())
 
 @app.get("/view_video/{object_key}")
 async def view_video(object_key: str):

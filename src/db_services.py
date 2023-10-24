@@ -124,6 +124,17 @@ async def update_video(video_id: int, video: _schemas.VideoCreate, current_user:
 
     return _schemas.Video.model_validate(video_db)
 
+async def update_video_status(video_id: int, db: _orm.Session):
+    video = db.query(_models.Video).filter(_models.Video.id == video_id).first()
+
+    if video is None:
+        raise _fastapi.HTTPException(status_code=404, detail"Video not found")
+
+    video.processed = True
+
+    db.commit()
+    db.refresh(video)
+
 async def delete_video(video_id: int,  current_user: _schemas.User, db: _orm.Session):
     if current_user is None:
         raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")

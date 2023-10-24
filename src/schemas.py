@@ -24,6 +24,7 @@ class _VideoBase(_pydantic.BaseModel):
     object_key: str
     video_name: str
     video_description: str
+    processed: bool
 
 class VideoCreate(_VideoBase):
     pass
