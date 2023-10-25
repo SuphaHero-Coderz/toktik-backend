@@ -39,3 +39,8 @@ class Video(_VideoBase):
     class Config:
         orm_mode = True
         from_attributes = True
+
+class VideoInformation(_pydantic.BaseModel):
+    object_key: str
+    video_name: str
+    video_description: str

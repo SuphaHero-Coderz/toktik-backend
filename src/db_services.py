@@ -128,8 +128,8 @@ async def update_video(video_id: int, video: _schemas.VideoCreate, current_user:
 
     return _schemas.Video.model_validate(video_db)
 
-async def update_video_status(video_id: int, db: _orm.Session):
-    video = db.query(_models.Video).filter(_models.Video.id == video_id).first()
+async def update_video_status(video_info: _schemas.VideoInformation, db: _orm.Session):
+    video = db.query(_models.Video).filter(_models.Video.object_key == video_info.object_key).first()
 
     if video is None:
         raise _fastapi.HTTPException(status_code=404, detail="Video not found")
