@@ -3,6 +3,7 @@ import  passlib.hash as _hash
 import sqlalchemy.orm as _orm
 import database as _database
 import datetime as _dt
+import os
 
 class User(_database.Base):
     __tablename__ = "users"
@@ -23,6 +24,8 @@ class Video(_database.Base):
     object_key = _sql.Column(_sql.String, index=True)
     video_name = _sql.Column(_sql.String, index=True)
     video_description = _sql.Column(_sql.String, default="")
+    video_thumbnail = _sql.Column(_sql.String, default=os.getenv("CLOUDFRONT_ORIGIN_URL"))
     date_uploaded = _sql.Column(_sql.DateTime, default=_dt.datetime.utcnow)
+    processed = _sql.Column(_sql.Boolean, default=False)
 
     owner = _orm.relationship("User", back_populates="videos")
