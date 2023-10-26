@@ -5,11 +5,17 @@ import fastapi as _fastapi
 import sqlalchemy.orm as _orm
 from fastapi import APIRouter
 import redis
+from dotenv import load_dotenv
 
 import src.db_services as _services
 import src.schemas as _schemas
+from src.schemas import VideoInformation
 
 router = APIRouter(tags=["processing"])
+
+load_dotenv()
+
+
 
 #Redis credentials used to connect with Redis message broker
 class RedisResource:
@@ -67,3 +73,4 @@ async def process_video(
     await _services.create_video(db=db, current_user=current_user, video=vid_info_db)
     encode(vid_info)
     return {"message", "OK"}
+
