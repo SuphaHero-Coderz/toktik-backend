@@ -102,7 +102,7 @@ async def select_video(video_id: int, current_user: _schemas.User, db: _orm.Sess
     return video
 
 async def get_all_videos(db: _orm.Session):
-    videos = db.query(_models.Video).all()
+    videos = db.query(_models.Video).filter_by(processed=True)
     return list(map(_schemas.Video.model_validate, videos))
 
 async def get_videos(current_user: _schemas.User, db: _orm.Session):
