@@ -20,12 +20,12 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-import schemas as _schemas
+import src.schemas as _schemas
 import fastapi as _fastapi
-import db_services as _services
+import src.db_services as _services
 import sqlalchemy.orm as _orm
-import fastapi.security as _security
 from typing import List
+from .routers import users
 
 app = FastAPI()
 
@@ -49,6 +49,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(users.router)
 
 @app.get("/")
 def read_root():
@@ -178,41 +180,6 @@ async def view_video(object_key: str):
     m3u8_url = signed_m3u8_url.split("?")[0]
 
     return { "m3u8_url" : m3u8_url, "token" : token }
-
-@app.post("/api/users")
-async  def create_user(user: _schemas.UserCreate, db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
-    db_user = await _services.get_user_by_username(user.username, db)
-    if db_user:
-        raise _fastapi.HTTPException(status_code=400, detail="Username already in use")
-    user = await _services.create_user(user, db)
-    return await _services.create_token(user)
-
-@app.post("/api/token")
-async def generate_token(form_data: _security.OAuth2PasswordRequestForm = fastapi.Depends(),
-                         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
-    user = await _services.authenticate_user(username=form_data.username, password=form_data.password, db=db)
-    if not user:
-        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
-    return await _services.create_token(user)
-
-@app.get("/api/users/me", response_model=_schemas.User)
-async def get_current_user(user: _schemas.User = _fastapi.Depends(_services.get_current_user)):
-    return user
-
-@app.get("/api/users/{user_id}", response_model=_schemas.User)
-async def get_user(
-        user_id: int,
-        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
-        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
-    return await _services.get_user(user_id=user_id, current_user=current_user, db=db)
-
-@app.delete("/api/users/{user_id}", status_code=204)
-async def delete_user(
-        user_id: int,
-        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
-        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
-    await _services.delete_user(user_id=user_id, current_user=current_user, db=db)
-    return {"message", "Successfully Deleted"}
 
 @app.post("/api/videos", response_model=_schemas.Video)
 async def create_video(
