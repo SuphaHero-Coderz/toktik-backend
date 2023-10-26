@@ -26,6 +26,7 @@ import src.db_services as _services
 import sqlalchemy.orm as _orm
 from typing import List
 from .routers import users, videos, processing
+from schemas import VideoInformation
 
 app = FastAPI()
 
@@ -73,29 +74,14 @@ class RedisResource:
 
     conn = redis.Redis(host=host, *port)
 
-
-# create a subscriber for receiving message from workers
-sub = RedisResource.conn.pubsub(ignore_subscribe_messages=True)
-sub.subscribe("encode")
-sub.subscribe("chunk")
-sub.subscribe("thumbnail")
-
-class VideoInformation(BaseModel):
-    object_key: str
-
 #push chunking work into workqueue
 @app.post("/chunk")
 def chunk(vid_info: VideoInformation):
     RedisResource.conn.rpush(
         RedisResource.CHUNK_QUEUE,
         json.dumps(vid_info.__dict__))
-    #loop to detect message publish by workers
-    while True:
-        msg = sub.get_message()
-        if msg:
-            print(f"new message in channel {msg['channel']}: {msg['data']}")
-            break
-    return msg
+    # print("chunk")
+    return {"message": "OK"}
 
 # push encode work into workqueue
 @app.post("/encode")
@@ -103,13 +89,8 @@ def encode(vid_info: VideoInformation):
     RedisResource.conn.rpush(
         RedisResource.ENCODE_QUEUE,
         json.dumps(vid_info.__dict__))
-    #loop to detect message publish by workers
-    while True:
-        msg = sub.get_message()
-        if msg:
-            print(f"new message in channel {msg['channel']}: {msg['data']}")
-            break
-    return msg
+    # print("encode")
+    return {"message": "OK"}
 
 # push thumbnail work into workqueue
 @app.post("/thumbnail")
@@ -117,13 +98,8 @@ def thumbnail(vid_info: VideoInformation):
     RedisResource.conn.rpush(
         RedisResource.THUMBNAIL_QUEUE,
         json.dumps(vid_info.__dict__))
-    #loop to detect message publish by workers
-    while True:
-        msg = sub.get_message()
-        if msg:
-            print(f"new message in channel {msg['channel']}: {msg['data']}")
-            break
-    return msg
+    # print("thumbnail")
+    return {"message": "OK"}
 
 @app.get("/generate_presigned_url/{object_key}")
 async def generate_presigned_url(object_key: str):
@@ -149,13 +125,27 @@ async def generate_presigned_url(object_key: str):
         return {"error": "AWS credentials not available."}
 
 @app.post("/process_video/")
-async def process_video(vid_info: VideoInformation):
-    msg = encode(vid_info)
-    msg_data = json.loads(msg['data'])
-    if msg_data['status'] == 1:
-        thumbnail(vid_info)
-        chunk(vid_info)
+async def process_video(
+        vid_info: VideoInformation,
+        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    vid_info_db = _schemas.VideoCreate(
+            object_key = vid_info.object_key,
+            video_name = vid_info.video_name,
+            video_description = vid_info.video_description,
+            video_thumbnail = f"{os.getenv('CLOUDFRONT_ORIGIN_URL')}/{vid_info.object_key}/thumbnail.jpg",
+            processed = False)
+    await _services.create_video(db=db, current_user=current_user, video=vid_info_db)
+    encode(vid_info)
+    return {"message", "OK"}
+  
 
+@app.post("/update_video_status")
+async def update_video_status(vid_info: VideoInformation,
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    print("update_video_status")
+    await _services.update_video_status(video_info=vid_info, db=db)
+    return {"message", "OK"}
 
 @app.get("/view_video/{object_key}")
 async def view_video(object_key: str):
