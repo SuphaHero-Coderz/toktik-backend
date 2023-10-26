@@ -25,7 +25,7 @@ import fastapi as _fastapi
 import src.db_services as _services
 import sqlalchemy.orm as _orm
 from typing import List
-from .routers import users, videos
+from .routers import users, videos, processing
 
 app = FastAPI()
 
@@ -52,6 +52,7 @@ app.add_middleware(
 
 app.include_router(users.router)
 app.include_router(videos.router)
+app.include_router(processing.router)
 
 @app.get("/")
 def read_root():
