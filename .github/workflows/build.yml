@@ -34,7 +34,6 @@ jobs:
       run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
     - name: Build the Docker image
       run: |
-        cd backend && \
         docker build . --file Dockerfile \
         --tag ghcr.io/${{ env.BASE_IMG_NAME }}/toktik-backend:${{ steps.vars.outputs.sha_short }} \
         --tag ghcr.io/${{ env.BASE_IMG_NAME }}/toktik-backend:latest
