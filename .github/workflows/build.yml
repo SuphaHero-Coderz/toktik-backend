@@ -36,13 +36,13 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Derive short SHA name
       id: vars
-      run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+      run: echo "name=sha_short::$(git rev-parse --short HEAD)" >>$GITHUB_OUTPUT
     - name: Build the Docker image
       run: |
         docker build . --file Dockerfile \
-        --tag ghcr.io/${{ env.IMG_LC }}/toktik-backend:${{ steps.vars.outputs.sha_short }} \
-        --tag ghcr.io/${{ env.IMG_LC }}/toktik-backend:latest
+        --tag ghcr.io/${{ env.IMG_LC }}:${{ steps.vars.outputs.sha_short }} \
+        --tag ghcr.io/${{ env.IMG_LC }}:latest
     - name: Publish the images
       run: | 
-        docker push ghcr.io/${{ env.IMG_LC }}/toktik-backend:${{ steps.vars.outputs.sha_short }}
-        docker push ghcr.io/${{ env.IMG_LC }}/toktik-backend:latest
+        docker push ghcr.io/${{ env.IMG_LC }}:${{ steps.vars.outputs.sha_short }}
+        docker push ghcr.io/${{ env.IMG_LC }}:latest
