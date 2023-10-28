@@ -38,7 +38,7 @@ jobs:
       id: vars
       run: |
         sha=$(git rev-parse --short HEAD)
-        echo "name=sha_short::$sha" >> $GITHUB_OUTPUT
+        echo "sha_short=$sha" >> $GITHUB_OUTPUT
     - name: Build the Docker image
       run: |
         docker build . --file Dockerfile \
