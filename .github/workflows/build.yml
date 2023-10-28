@@ -41,8 +41,8 @@ jobs:
       run: |
         docker build . --file Dockerfile \
         --tag ghcr.io/${{ env.IMG_LC }}${{ steps.vars.outputs.sha_short }} \
-        --tag ghcr.io/${{ env.IMG_LC }}latest
+        --tag ghcr.io/${{ env.IMG_LC }}
     - name: Publish the images
       run: | 
         docker push ghcr.io/${{ env.IMG_LC }}${{ steps.vars.outputs.sha_short }}
-        docker push ghcr.io/${{ env.IMG_LC }}latest
+        docker push ghcr.io/${{ env.IMG_LC }}
