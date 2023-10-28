@@ -33,7 +33,7 @@ class RedisResource:
     conn = redis.Redis(host=host, *port)
 
 #push chunking work into workqueue
-@router.post("/chunk")
+@router.post("/api/chunk")
 def chunk(vid_info: VideoInformation):
     RedisResource.conn.rpush(
         RedisResource.CHUNK_QUEUE,
@@ -42,7 +42,7 @@ def chunk(vid_info: VideoInformation):
     return {"message": "OK"}
 
 # push encode work into workqueue
-@router.post("/encode")
+@router.post("/api/encode")
 def encode(vid_info: VideoInformation):
     RedisResource.conn.rpush(
         RedisResource.ENCODE_QUEUE,
@@ -51,7 +51,7 @@ def encode(vid_info: VideoInformation):
     return {"message": "OK"}
 
 # push thumbnail work into workqueue
-@router.post("/thumbnail")
+@router.post("/api/thumbnail")
 def thumbnail(vid_info: VideoInformation):
     RedisResource.conn.rpush(
         RedisResource.THUMBNAIL_QUEUE,
@@ -59,7 +59,7 @@ def thumbnail(vid_info: VideoInformation):
     # print("thumbnail")
     return {"message": "OK"}
 
-@router.post("/process_video/")
+@router.post("/api/process_video/")
 async def process_video(
         vid_info: VideoInformation,
         current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
