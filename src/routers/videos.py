@@ -62,7 +62,7 @@ async def update_video(
         await _services.update_video(video_id=video_id, video=video, current_user=current_user, db=db)
         return {"message", "Successfully Updated"}
 
-@router.post("/update_video_status")
+@router.post("/api/update_video_status")
 async def update_video_status(vid_info: VideoInformation,
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
     print("update_video_status")
