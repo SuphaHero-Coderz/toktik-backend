@@ -38,8 +38,9 @@ async def generate_token(form_data: _security.OAuth2PasswordRequestForm = _fasta
     return response
 
 @router.get("/api/users/me", response_model=_schemas.User)
-async def get_current_user(user: _schemas.User = _fastapi.Depends(_services.get_current_user)):
-    return user
+async def get_current_user(response: Response, user: _schemas.User = _fastapi.Depends(_services.get_current_user)):
+    response.set_cookie(key="access_token", value=f"Bearer {user.token}", httponly=True)
+    return _schemas.User.model_validate({"id": user.id, "username": user.username, "token": user.token})
 
 @router.get("/api/users/{user_id}", response_model=_schemas.User)
 async def get_user(

@@ -41,9 +41,10 @@ class OAuth2PasswordBearerWithCookie(OAuth2):
 
     async def __call__(self, request: Request) -> Optional[str]:
         authorization: str = request.cookies.get("access_token")  #changed to accept access token from httpOnly Cookie
+        authorization_refresh: str = request.cookies.get("refresh_token")
 
         scheme, param = get_authorization_scheme_param(authorization)
-        if not authorization or scheme.lower() != "bearer":
+        if not authorization_refresh or not authorization or scheme.lower() != "bearer":
             if self.auto_error:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -115,21 +116,23 @@ async def get_current_user(
         payload = _jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user = db.query(_models.User).get(payload["id"])
     except  _jwt.ExpiredSignatureError:
-        refresh_token = request.cookies.get("refresh_token").split(" ")[1]
         try:
+            refresh_token = request.cookies.get("refresh_token").split(" ")[1]
             payload = _jwt.decode(refresh_token, JWT_REFRESH_SECRET, algorithms=["HS256"])
+        except AttributeError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+            )
         except _jwt.ExpiredSignatureError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated",
             )
         user = db.query(_models.User).get(payload["id"])
-        user_schema = {"id": user.id, "username": user.username}
         token = await create_token(user)
-        response = _fastapi.responses.JSONResponse(content=user_schema)
-        response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
-        return response
-    return _schemas.User.model_validate({"id": user.id, "username": user.username, "hashed_password": user.hashed_password})
+        return _schemas.AuthUser.model_validate({"id": user.id, "username": user.username, "hashed_password": user.hashed_password, "token": token})
+    return _schemas.AuthUser.model_validate({"id": user.id, "username": user.username, "hashed_password": user.hashed_password, "token": token})
 
 async def select_user(user_id: int, current_user: _schemas.User, db: _orm.Session):
     if current_user is None:

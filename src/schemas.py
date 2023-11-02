@@ -20,6 +20,13 @@ class User(_UserBase):
         orm_mode = True
         from_attributes=True
 
+class AuthUser(_UserBase):
+    id: int
+    token: str
+    class Config:
+        orm_mode = True
+        from_attributes=True
+
 class _VideoBase(_pydantic.BaseModel):
     model_config = _pydantic.ConfigDict(from_attributes=True)
     object_key: str
