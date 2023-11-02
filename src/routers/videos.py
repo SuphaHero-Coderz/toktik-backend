@@ -75,7 +75,7 @@ async def update_video_status(vid_info: VideoInformation,
     await _services.update_video_status(video_info=vid_info, db=db)
     return {"message", "OK"}
 
-@router.get("/view_video/{object_key}")
+@router.get("/api/view_video/{object_key}")
 async def view_video(object_key: str):
     def rsa_signer(message):
         cloudfront_private_key_base64 = os.getenv("CLOUDFRONT_PRIVATE_KEY_BASE64")
