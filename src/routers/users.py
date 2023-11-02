@@ -2,7 +2,7 @@ import fastapi as _fastapi
 import fastapi.security as _security
 import sqlalchemy.orm as _orm
 from fastapi import APIRouter
-from fastapi import Response
+from fastapi import Response, Request
 
 import src.db_services as _services
 import src.schemas as _schemas

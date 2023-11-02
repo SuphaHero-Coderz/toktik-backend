@@ -7,7 +7,9 @@ import jwt as _jwt
 import fastapi as _fastapi
 import fastapi.security as _security
 from dotenv import load_dotenv
+import datetime
 import os
+from datetime import timezone
 
 load_dotenv()
 
@@ -16,7 +18,7 @@ JWT_REFRESH_SECRET = os.getenv("JWT_REFRESH_SECRET")
 
 from fastapi.security import OAuth2
 from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
-from fastapi import Request
+from fastapi import Request, Response
 from fastapi.security.utils import get_authorization_scheme_param
 from fastapi import HTTPException
 from fastapi import status
@@ -39,8 +41,6 @@ class OAuth2PasswordBearerWithCookie(OAuth2):
 
     async def __call__(self, request: Request) -> Optional[str]:
         authorization: str = request.cookies.get("access_token")  #changed to accept access token from httpOnly Cookie
-        print("access_token is",authorization)
-        print("request: ", request.cookies)
 
         scheme, param = get_authorization_scheme_param(authorization)
         if not authorization or scheme.lower() != "bearer":
@@ -87,27 +87,48 @@ async def authenticate_user(username: str, password: str, db: _orm.Session):
     return user
 
 async def create_token(user: _models.User):
-    user_obj = _schemas.User.model_validate({"id": user.id, "username": user.username, "hashed_password": user.hashed_password})
-    token = _jwt.encode(user_obj.model_dump(), JWT_SECRET)
+    data = {
+        "id": user.id,
+        "username": user.username,
+        "hashed_password": user.hashed_password,
+        "exp": datetime.datetime.now(tz=timezone.utc) + datetime.timedelta(seconds=30)
+    }
+    token = _jwt.encode(data, JWT_SECRET)
     return token
 
 async def create_refresh_token(user: _models.User):
-    user_obj = _schemas.User.model_validate(
-        {"id": user.id, "username": user.username, "hashed_password": user.hashed_password})
-
-    refresh_token = _jwt.encode(user_obj.model_dump(), JWT_REFRESH_SECRET)
+    data = {
+        "id": user.id,
+        "username": user.username,
+        "hashed_password": user.hashed_password,
+        "exp": datetime.datetime.now(tz=timezone.utc) + datetime.timedelta(seconds=300)
+    }
+    refresh_token = _jwt.encode(data, JWT_REFRESH_SECRET)
     return refresh_token
 
-async def get_current_user(db: _orm.Session = _fastapi.Depends(get_db_session),
-                           token: str = _fastapi.Depends(oauth2schema)):
-    print(token)
+async def get_current_user(
+        request: Request,
+        db: _orm.Session = _fastapi.Depends(get_db_session),
+        token: str = _fastapi.Depends(oauth2schema),
+                           ):
     try:
         payload = _jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user = db.query(_models.User).get(payload["id"])
-    except:
-        raise _fastapi.HTTPException(
-            status_code=401, detail="Invalid Username or Password"
-        )
+    except  _jwt.ExpiredSignatureError:
+        refresh_token = request.cookies.get("refresh_token").split(" ")[1]
+        try:
+            payload = _jwt.decode(refresh_token, JWT_REFRESH_SECRET, algorithms=["HS256"])
+        except _jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+            )
+        user = db.query(_models.User).get(payload["id"])
+        user_schema = {"id": user.id, "username": user.username}
+        token = await create_token(user)
+        response = _fastapi.responses.JSONResponse(content=user_schema)
+        response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
+        return response
     return _schemas.User.model_validate({"id": user.id, "username": user.username, "hashed_password": user.hashed_password})
 
 async def select_user(user_id: int, current_user: _schemas.User, db: _orm.Session):
