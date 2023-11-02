@@ -7,13 +7,54 @@ import jwt as _jwt
 import fastapi as _fastapi
 import fastapi.security as _security
 from dotenv import load_dotenv
+import datetime
 import os
+from datetime import timezone
 
 load_dotenv()
 
 JWT_SECRET = os.getenv("JWT_SECRET")
-oauth2schema = _security.OAuth2PasswordBearer(tokenUrl="/api/token")
+JWT_REFRESH_SECRET = os.getenv("JWT_REFRESH_SECRET")
 
+from fastapi.security import OAuth2
+from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
+from fastapi import Request, Response
+from fastapi.security.utils import get_authorization_scheme_param
+from fastapi import HTTPException
+from fastapi import status
+from typing import Optional
+from typing import Dict
+
+
+class OAuth2PasswordBearerWithCookie(OAuth2):
+    def __init__(
+        self,
+        tokenUrl: str,
+        scheme_name: Optional[str] = None,
+        scopes: Optional[Dict[str, str]] = None,
+        auto_error: bool = True,
+    ):
+        if not scopes:
+            scopes = {}
+        flows = OAuthFlowsModel(password={"tokenUrl": tokenUrl, "scopes": scopes})
+        super().__init__(flows=flows, scheme_name=scheme_name, auto_error=auto_error)
+
+    async def __call__(self, request: Request) -> Optional[str]:
+        authorization: str = request.cookies.get("access_token")  #changed to accept access token from httpOnly Cookie
+
+        scheme, param = get_authorization_scheme_param(authorization)
+        if not authorization or scheme.lower() != "bearer":
+            if self.auto_error:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            else:
+                return None
+        return param
+
+oauth2schema = OAuth2PasswordBearerWithCookie(tokenUrl="/api/token")
 def create_database():
     return _database.Base.metadata.create_all(bind=_database.engine)
 
@@ -46,21 +87,48 @@ async def authenticate_user(username: str, password: str, db: _orm.Session):
     return user
 
 async def create_token(user: _models.User):
-    user_obj = _schemas.User.model_validate({"id": user.id, "username": user.username, "hashed_password": user.hashed_password})
+    data = {
+        "id": user.id,
+        "username": user.username,
+        "hashed_password": user.hashed_password,
+        "exp": datetime.datetime.now(tz=timezone.utc) + datetime.timedelta(seconds=30)
+    }
+    token = _jwt.encode(data, JWT_SECRET)
+    return token
 
-    token = _jwt.encode(user_obj.model_dump(), JWT_SECRET)
+async def create_refresh_token(user: _models.User):
+    data = {
+        "id": user.id,
+        "username": user.username,
+        "hashed_password": user.hashed_password,
+        "exp": datetime.datetime.now(tz=timezone.utc) + datetime.timedelta(seconds=300)
+    }
+    refresh_token = _jwt.encode(data, JWT_REFRESH_SECRET)
+    return refresh_token
 
-    return dict(access_token=token, token_type="bearer")
-
-async def get_current_user(db: _orm.Session = _fastapi.Depends(get_db_session),
-                           token: str = _fastapi.Depends(oauth2schema)):
+async def get_current_user(
+        request: Request,
+        db: _orm.Session = _fastapi.Depends(get_db_session),
+        token: str = _fastapi.Depends(oauth2schema),
+                           ):
     try:
         payload = _jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user = db.query(_models.User).get(payload["id"])
-    except:
-        raise _fastapi.HTTPException(
-            status_code=401, detail="Invalid Username or Password"
-        )
+    except  _jwt.ExpiredSignatureError:
+        refresh_token = request.cookies.get("refresh_token").split(" ")[1]
+        try:
+            payload = _jwt.decode(refresh_token, JWT_REFRESH_SECRET, algorithms=["HS256"])
+        except _jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+            )
+        user = db.query(_models.User).get(payload["id"])
+        user_schema = {"id": user.id, "username": user.username}
+        token = await create_token(user)
+        response = _fastapi.responses.JSONResponse(content=user_schema)
+        response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
+        return response
     return _schemas.User.model_validate({"id": user.id, "username": user.username, "hashed_password": user.hashed_password})
 
 async def select_user(user_id: int, current_user: _schemas.User, db: _orm.Session):
