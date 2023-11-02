@@ -45,6 +45,12 @@ async def get_video(
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
     return await _services.get_video(video_id=video_id, current_user=current_user, db=db)
 
+@router.get("/api/increment_video_views/{video_id}")
+async def increment_video_views(
+        video_id: int,
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    await _services.increment_video_views(video_id=video_id, db=db)
+
 @router.delete("/api/videos/{video_id}", status_code=204)
 async def delete_video(
         video_id: int,

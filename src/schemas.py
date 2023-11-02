@@ -27,6 +27,7 @@ class _VideoBase(_pydantic.BaseModel):
     video_description: str
     video_thumbnail: str
     processed: bool
+    views: int
 
 class VideoCreate(_VideoBase):
     pass

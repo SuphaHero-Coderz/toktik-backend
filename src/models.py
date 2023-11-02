@@ -27,5 +27,6 @@ class Video(_database.Base):
     video_thumbnail = _sql.Column(_sql.String, default=os.getenv("CLOUDFRONT_ORIGIN_URL"))
     date_uploaded = _sql.Column(_sql.DateTime, default=_dt.datetime.utcnow)
     processed = _sql.Column(_sql.Boolean, default=False)
+    views = _sql.Column(_sql.Integer, default=1)
 
     owner = _orm.relationship("User", back_populates="videos")

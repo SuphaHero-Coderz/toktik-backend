@@ -102,7 +102,7 @@ async def select_video(video_id: int, current_user: _schemas.User, db: _orm.Sess
     return video
 
 async def get_all_videos(db: _orm.Session):
-    videos = db.query(_models.Video).filter_by(processed=True)
+    videos = db.query(_models.Video).filter_by(processed=True).order_by(_models.Video.views.desc())
     return list(map(_schemas.Video.model_validate, videos))
 
 async def get_videos(current_user: _schemas.User, db: _orm.Session):
@@ -127,6 +127,17 @@ async def update_video(video_id: int, video: _schemas.VideoCreate, current_user:
     db.refresh(video_db)
 
     return _schemas.Video.model_validate(video_db)
+
+async def increment_video_views(video_id: int, db: _orm.Session):
+    video = db.query(_models.Video).filter_by(id=video_id).first()
+    if video is None:
+        raise _fastapi.HTTPException(status_code=404, detail="Video not found")
+    video.views += 1
+
+    db.commit()
+    db.refresh(video)
+
+    return _schemas.Video.model_validate(video)
 
 async def update_video_status(video_info: _schemas.VideoInformation, db: _orm.Session):
     video = db.query(_models.Video).filter(_models.Video.object_key == video_info.object_key).first()
