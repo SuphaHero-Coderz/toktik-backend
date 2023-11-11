@@ -28,5 +28,13 @@ class Video(_database.Base):
     date_uploaded = _sql.Column(_sql.DateTime, default=_dt.datetime.utcnow)
     processed = _sql.Column(_sql.Boolean, default=False)
     views = _sql.Column(_sql.Integer, default=1)
+    likes = _sql.Column(_sql.Integer, default=0)
 
     owner = _orm.relationship("User", back_populates="videos")
+
+class Like(_database.Base):
+    __tablename__ = "likes"
+    id = _sql.Column(_sql.Integer, primary_key=True, index=True)
+    video_id = _sql.Column(_sql.Integer, _sql.ForeignKey("videos.id"))
+    user_id = _sql.Column(_sql.Integer, _sql.ForeignKey("users.id"))
+    liked = _sql.Column(_sql.Boolean, default=False)

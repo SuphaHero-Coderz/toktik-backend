@@ -70,8 +70,10 @@ async def process_video(
             video_description = vid_info.video_description,
             video_thumbnail = f"{os.getenv('CLOUDFRONT_ORIGIN_URL')}/{vid_info.object_key}/thumbnail.jpg",
             processed = False,
-            views = 1)
+            views = 1,
+            likes = 0)
     await _services.create_video(db=db, current_user=current_user, video=vid_info_db)
+    await _services.create_like(db=db, current_user=current_user, video_info=vid_info_db)
     encode(vid_info)
     return {"message", "OK"}
 

@@ -51,6 +51,23 @@ async def increment_video_views(
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
     await _services.increment_video_views(video_id=video_id, db=db)
 
+@router.get("/api/process_video_like/{video_id}")
+async def process_video_like(
+        video_id: int, 
+        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    await _services.process_video_like(video_id=video_id, current_user=current_user, db=db)
+
+@router.get("/api/get_liked_status/{video_id}")
+async def get_liked_status(
+     video_id: int,
+     current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+     db: _orm.Session = _fastapi.Depends(_services.get_db_session)
+):
+    liked = await _services.get_liked_status(video_id=video_id, current_user=current_user, db=db)
+
+    return { "liked" : bool(liked) }
+
 @router.delete("/api/videos/{video_id}", status_code=204)
 async def delete_video(
         video_id: int,
@@ -71,7 +88,6 @@ async def update_video(
 @router.post("/api/update_video_status")
 async def update_video_status(vid_info: VideoInformation,
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
-    print("update_video_status")
     await _services.update_video_status(video_info=vid_info, db=db)
     return {"message", "OK"}
 
