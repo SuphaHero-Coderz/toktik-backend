@@ -9,7 +9,7 @@ RUN pip install -r /app/requirements.txt
 
 # Copy everthing from . to /app inside the 'box'
 COPY ./src/ /app/src/
-COPY .env /app/src/
+#COPY .env /app/src/
 WORKDIR /app
 
 

@@ -75,6 +75,15 @@ async def update_video_status(vid_info: VideoInformation,
     await _services.update_video_status(video_info=vid_info, db=db)
     return {"message", "OK"}
 
+@router.get("/api/get_views/{video_id}")
+async def get_views(video_id: int,
+                    current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+                    db: _orm.Session = _fastapi.Depends(_services.get_db_session),
+                    ):
+    video = await _services.get_video(video_id=video_id,current_user=current_user, db=db)
+    return video.views
+
+
 @router.get("/api/view_video/{object_key}")
 async def view_video(object_key: str):
     def rsa_signer(message):
