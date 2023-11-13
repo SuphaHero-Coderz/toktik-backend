@@ -268,6 +268,23 @@ async def delete_video(video_id: int,  current_user: _schemas.User, db: _orm.Ses
     db.delete(video)
     db.commit()
 
+async def create_comment(comment: _schemas.Comment, current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    video_id = comment.video_id
+    video = await select_video(video_id=video_id, current_user=current_user, db=db)
+    if video is None:
+        raise _fastapi.HTTPException(status_code=404, detail="Video not found")
+    content = comment.content
+    comment_obj = _models.Comment(user_id=current_user.id, video_id=video_id, content=content)
+
+    db.add(comment_obj)
+    db.commit()
+    db.refresh(comment_obj)
+
+    return _schemas.Comment.model_validate(comment_obj)
+
+
 
 
 

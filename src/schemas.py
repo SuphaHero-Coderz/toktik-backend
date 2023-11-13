@@ -63,3 +63,11 @@ class _LikeBase(_pydantic.BaseModel):
 
 class Like(_LikeBase):
     id: Optional[int] = _pydantic.Field(default=None, primary_key=True)
+
+class _CommentBase(_pydantic.BaseModel):
+    model_config = _pydantic.ConfigDict(from_attributes=True)
+    video_id: int
+    content: str
+
+class Comment(_CommentBase):
+    id: Optional[int] = _pydantic.Field(default=None, primary_key=True)

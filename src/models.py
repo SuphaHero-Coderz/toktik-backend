@@ -38,3 +38,11 @@ class Like(_database.Base):
     video_id = _sql.Column(_sql.Integer, _sql.ForeignKey("videos.id"))
     user_id = _sql.Column(_sql.Integer, _sql.ForeignKey("users.id"))
     liked = _sql.Column(_sql.Boolean, default=False)
+
+class Comment(_database.Base):
+    __tablename__ = "comments"
+    id = _sql.Column(_sql.Integer, primary_key=True, index=True)
+    video_id = _sql.Column(_sql.Integer, _sql.ForeignKey("videos.id"))
+    user_id = _sql.Column(_sql.Integer, _sql.ForeignKey("users.id"))
+    content = _sql.Column(_sql.String)
+    date_commented = _sql.Column(_sql.DateTime, default=_dt.datetime.utcnow)
