@@ -178,9 +178,7 @@ async def create_video(video: _schemas.VideoCreate, current_user: _schemas.User,
     return video_obj
 
 async def select_video(video_id: int, current_user: _schemas.User, db: _orm.Session):
-    if current_user is None:
-        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
-    video = db.query(_models.Video).filter_by(owner_id=current_user.id).filter(_models.Video.id == video_id).first()
+    video = db.query(_models.Video).filter(_models.Video.id == video_id).first()
     if video is None:
         raise _fastapi.HTTPException(status_code=404, detail="Video not found")
     return video
@@ -194,8 +192,6 @@ async def get_videos(current_user: _schemas.User, db: _orm.Session):
     return list(map(_schemas.Video.model_validate, videos))
 
 async def get_video(video_id: int , current_user: _schemas.User, db: _orm.Session):
-    if current_user is None:
-        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
     video = await select_video(video_id=video_id , current_user=current_user, db=db)
     return _schemas.Video.model_validate(video)
 
