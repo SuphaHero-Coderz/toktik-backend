@@ -126,7 +126,7 @@ async def view_video(object_key: str):
 
     return { "m3u8_url" : m3u8_url, "token" : token }
 
-@router.post("/api/comments", response_model=_schemas.Comment)
+@router.post("/api/comments", response_model=_schemas.CommentCreate)
 async def create_comment(
         comment: _schemas.CommentCreate,
         current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
