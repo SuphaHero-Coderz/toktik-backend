@@ -155,6 +155,19 @@ async def delete_user(user_id: int, current_user: _schemas.User, db: _orm.Sessio
     db.delete(user)
     db.commit()
 
+async def create_like(video_info: _schemas.VideoCreate, current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+
+    video = db.query(_models.Video).filter(_models.Video.object_key == video_info.object_key).first()
+    like_obj = _models.Like(user_id=current_user.id, video_id=video.id)
+
+    db.add(like_obj)
+    db.commit()
+    db.refresh(like_obj)
+
+    return like_obj
+
 async def create_video(video: _schemas.VideoCreate, current_user: _schemas.User, db: _orm.Session):
     if current_user is None:
         raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
@@ -209,6 +222,37 @@ async def increment_video_views(video_id: int, db: _orm.Session):
     db.refresh(video)
 
     return _schemas.Video.model_validate(video)
+
+async def process_video_like(video_id: int, current_user: _schemas.User, db: _orm.Session):
+    video = db.query(_models.Video).filter_by(id=video_id).first()
+    like = db.query(_models.Like).filter_by(video_id=video_id, user_id=current_user.id).first()
+
+    if video is None:
+        raise _fastapi.HTTPException(status_code=404, detail="Video not found")
+
+    if like is None:
+        raise _fastapi.HTTPException(status_code=404, detail="Like object not found")
+
+    if bool(like.liked):
+        video.likes -= 1
+        like.liked = False
+    else:
+        video.likes += 1
+        like.liked = True
+
+    db.commit()
+    db.refresh(video)
+    db.refresh(like)
+
+    return _schemas.Video.model_validate(video)
+
+async def get_liked_status(video_id: int, current_user: _schemas.User, db: _orm.Session):
+    like = db.query(_models.Like).filter_by(video_id=video_id, user_id=current_user.id).first()
+
+    if like is None:
+        raise _fastapi.HTTPException(status_code=404, detail="Like object not found")
+
+    return like.liked
 
 async def update_video_status(video_info: _schemas.VideoInformation, db: _orm.Session):
     video = db.query(_models.Video).filter(_models.Video.object_key == video_info.object_key).first()

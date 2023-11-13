@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 import pydantic as _pydantic
 import datetime as _dt
 
@@ -35,6 +35,7 @@ class _VideoBase(_pydantic.BaseModel):
     video_thumbnail: str
     processed: bool
     views: int
+    likes: int
 
 class VideoCreate(_VideoBase):
     pass
@@ -53,3 +54,12 @@ class VideoInformation(_pydantic.BaseModel):
     object_key: str
     video_name: str
     video_description: str
+
+class _LikeBase(_pydantic.BaseModel):
+    model_config = _pydantic.ConfigDict(from_attributes = True)
+    user_id: int
+    video_id: int
+    liked: bool
+
+class Like(_LikeBase):
+    id: Optional[int] = _pydantic.Field(default=None, primary_key=True)
