@@ -69,5 +69,9 @@ class _CommentBase(_pydantic.BaseModel):
     video_id: int
     content: str
 
+class CommentCreate(_CommentBase):
+    pass
+
 class Comment(_CommentBase):
     id: Optional[int] = _pydantic.Field(default=None, primary_key=True)
+    user_id: int

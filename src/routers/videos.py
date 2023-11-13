@@ -128,7 +128,7 @@ async def view_video(object_key: str):
 
 @router.post("/api/comments", response_model=_schemas.Comment)
 async def create_comment(
-        comment: _schemas.Comment,
+        comment: _schemas.CommentCreate,
         current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
     return await _services.create_comment(comment=comment, current_user=current_user, db=db)
