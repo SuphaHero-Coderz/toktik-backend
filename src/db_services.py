@@ -284,6 +284,16 @@ async def create_comment(comment: _schemas.Comment, current_user: _schemas.User,
 
     return _schemas.Comment.model_validate(comment_obj)
 
+async def get_video_comments(video_id: int, current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    video = await select_video(video_id=video_id, current_user=current_user, db=db)
+    if video is None:
+        raise _fastapi.HTTPException(status_code=404, detail="Video not found")
+    comments = db.query(_models.Comment).filter(_models.Comment.video_id == video_id).order_by(_models.Comment.date_commented.desc())
+    return comments
+
+
 
 
 

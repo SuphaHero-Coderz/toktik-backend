@@ -132,3 +132,10 @@ async def create_comment(
         current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
     return await _services.create_comment(comment=comment, current_user=current_user, db=db)
+
+@router.get("/api/get_video_comments/{video_id}", response_model=List[_schemas.Comment])
+async def get_video_comments(
+        video_id: int,
+        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    return await _services.get_video_comments(video_id=video_id, current_user=current_user, db=db)
