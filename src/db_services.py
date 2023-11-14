@@ -226,9 +226,6 @@ async def process_video_like(video_id: int, current_user: _schemas.User, db: _or
     if video is None:
         raise _fastapi.HTTPException(status_code=404, detail="Video not found")
 
-    if like is None:
-        raise _fastapi.HTTPException(status_code=404, detail="Like object not found")
-
     if bool(like.liked):
         video.likes -= 1
         like.liked = False
@@ -246,7 +243,13 @@ async def get_liked_status(video_id: int, current_user: _schemas.User, db: _orm.
     like = db.query(_models.Like).filter_by(video_id=video_id, user_id=current_user.id).first()
 
     if like is None:
-        raise _fastapi.HTTPException(status_code=404, detail="Like object not found")
+        like_obj = _models.Like(user_id=current_user.id, video_id=video_id)
+
+        db.add(like_obj)
+        db.commit()
+        db.refresh(like_obj)
+
+        like = db.query(_models.Like).filter_by(video_id=video_id, user_id=current_user.id).first()
 
     return like.liked
 
@@ -284,14 +287,14 @@ async def create_comment(comment: _schemas.CommentCreate, current_user: _schemas
 
     return _schemas.CommentCreate.model_validate(comment_obj)
 
-async def get_video_comments(video_id: int, current_user: _schemas.User, db: _orm.Session):
+async def get_video_comment(video_id: int, current_user: _schemas.User, db: _orm.Session):
     if current_user is None:
         raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
     video = await select_video(video_id=video_id, current_user=current_user, db=db)
     if video is None:
         raise _fastapi.HTTPException(status_code=404, detail="Video not found")
     comments = db.query(_models.Comment).filter(_models.Comment.video_id == video_id).order_by(_models.Comment.date_commented.desc())
-    return comments
+    return list(map(_schemas.Comment.model_validate, comments))
 
 
 
