@@ -13,13 +13,24 @@ from botocore.signers import CloudFrontSigner
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import serialization 
 from cryptography.hazmat.primitives.asymmetric import padding
 import base64
+import redis
 
 router = APIRouter(tags=["videos"])
 
 load_dotenv()
+class RedisResource:
+    REDIS_QUEUE_LOCATION = os.getenv('REDIS_QUEUE', 'localhost')
+    host, *port_info = REDIS_QUEUE_LOCATION.split(':')
+    port = tuple()
+    if port_info:
+        port, *_ = port_info
+        port = (int(port),)
+
+    conn = redis.Redis(host=host, *port)
+
 
 @router.post("/api/videos", response_model=_schemas.Video)
 async def create_video(
@@ -131,7 +142,8 @@ async def create_comment(
         comment: _schemas.CommentCreate,
         current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
-    return await _services.create_comment(comment=comment, current_user=current_user, db=db)
+        RedisResource.conn.publish("backend_updates", "backed_hello")
+        return await _services.create_comment(comment=comment, current_user=current_user, db=db)
 
 @router.get("/api/get_video_comments/{video_id}", response_model=List[_schemas.Comment])
 async def get_video_comments(
