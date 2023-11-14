@@ -4,6 +4,7 @@ from fastapi import APIRouter
 import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+import json
 
 import src.db_services as _services
 import src.schemas as _schemas
@@ -15,6 +16,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization 
 from cryptography.hazmat.primitives.asymmetric import padding
+from fastapi.encoders import jsonable_encoder
 import base64
 import redis
 
@@ -61,6 +63,9 @@ async def increment_video_views(
         video_id: int,
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
     await _services.increment_video_views(video_id=video_id, db=db)
+    all_videos = await _services.get_all_videos(db=db)
+    all_videos_json = json.dumps([video.dict() for video in all_videos], default=str)
+    RedisResource.conn.publish("backend_videos", all_videos_json)
 
 @router.get("/api/process_video_like/{video_id}")
 async def process_video_like(
@@ -68,6 +73,9 @@ async def process_video_like(
         current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
     await _services.process_video_like(video_id=video_id, current_user=current_user, db=db)
+    all_videos = await _services.get_all_videos(db=db)
+    all_videos_json = json.dumps([video.dict() for video in all_videos], default=str)
+    RedisResource.conn.publish("backend_videos", all_videos_json)
 
 @router.get("/api/get_liked_status/{video_id}")
 async def get_liked_status(
@@ -142,12 +150,18 @@ async def create_comment(
         comment: _schemas.CommentCreate,
         current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
-        RedisResource.conn.publish("backend_updates", "backed_hello")
-        return await _services.create_comment(comment=comment, current_user=current_user, db=db)
+        new_comment = await _services.create_comment(comment=comment, current_user=current_user, db=db)
+        new_comments = await _services.get_video_comment(video_id=comment.video_id
+                                                                           , current_user=current_user
+                                                                           , db=db)
+        new_comments_json = json.dumps([comment.dict() for comment in new_comments])
+        RedisResource.conn.publish("backend_comments", 
+                                   new_comments_json)
+        return new_comment
 
 @router.get("/api/get_video_comments/{video_id}", response_model=List[_schemas.Comment])
 async def get_video_comments(
         video_id: int,
         current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
-    return await _services.get_video_comments(video_id=video_id, current_user=current_user, db=db)
+    return await _services.get_video_comment(video_id=video_id, current_user=current_user, db=db)
