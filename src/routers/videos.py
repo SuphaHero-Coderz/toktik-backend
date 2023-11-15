@@ -45,6 +45,14 @@ async def create_video(
 async def get_all_videos(db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
     return await _services.get_all_videos(db=db)
 
+@router.get("/api/get_videos/", response_model=List[_schemas.Video])
+async def get_more_videos(offset: int, length: int, db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    all_videos = await _services.get_all_videos(db=db)
+    end = offset + length
+    if end > len(all_videos):
+        return []
+    return all_videos[offset: end]
+
 @router.get("/api/videos", response_model=List[_schemas.Video])
 async def get_videos(
         current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
