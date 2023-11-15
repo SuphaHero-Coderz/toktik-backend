@@ -50,7 +50,7 @@ async def get_more_videos(offset: int, length: int, db: _orm.Session = _fastapi.
     all_videos = await _services.get_all_videos(db=db)
     end = offset + length
     if end > len(all_videos):
-        return []
+        return all_videos[offset:]
     return all_videos[offset: end]
 
 @router.get("/api/videos", response_model=List[_schemas.Video])
