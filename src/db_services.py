@@ -297,7 +297,36 @@ async def get_video_comment(video_id: int, current_user: _schemas.User, db: _orm
     return list(map(_schemas.Comment.model_validate, comments))
 
 
+async def create_notification(notification_obj: _schemas.NotificationCreate, current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    
+    notification_obj = _models.Notification(user_id=current_user.id, description=notification_obj.description, read=False)
 
+    db.add(notification_obj)
+    db.commit()
+    db.refresh(notification_obj)
 
+    return _schemas.NotificationCreate.model_validate(notification_obj)
 
+async def get_all_notifications(current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        return []
+    
+    notifications = db.query(_models.Notification).filter(_models.Notification.user_id == current_user.id).order_by(_models.Notification.timestamp.desc())
+    return list(map(_schemas.Notification.model_validate, notifications))
 
+async def read_all_notifications(current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        return []
+    
+    notifications = db.query(_models.Notification).filter(_models.Notification.user_id == current_user.id)
+
+    for notification in notifications:
+        notification.read = True
+
+    db.commit()
+    
+    for notification in notifications:
+        db.refresh(notification)
+    

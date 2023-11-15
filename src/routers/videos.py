@@ -77,6 +77,16 @@ async def process_video_like(
     all_videos_json = json.dumps([video.dict() for video in all_videos], default=str)
     RedisResource.conn.publish("backend_videos", all_videos_json)
 
+    liked = await _services.get_liked_status(video_id=video_id, current_user=current_user, db=db)
+
+    if bool(liked):
+        notification = _schemas.NotificationCreate(description="Someone liked your video!")
+        await _services.create_notification(notification_obj=notification, current_user=current_user, db=db)
+
+        all_notifications = await _services.get_all_notifications(current_user=current_user, db=db)
+        all_notifications_json = json.dumps([notification.dict() for notification in all_notifications], default=str)
+        RedisResource.conn.publish("new_notification", all_notifications_json)
+
 @router.get("/api/get_liked_status/{video_id}")
 async def get_liked_status(
      video_id: int,
@@ -155,8 +165,14 @@ async def create_comment(
                                                                            , current_user=current_user
                                                                            , db=db)
         new_comments_json = json.dumps([comment.dict() for comment in new_comments])
-        RedisResource.conn.publish("backend_comments", 
-                                   new_comments_json)
+        RedisResource.conn.publish("backend_comments", new_comments_json)
+
+        notification = _schemas.NotificationCreate(description="Someone commented on your video!")
+        await _services.create_notification(notification_obj=notification, current_user=current_user, db=db)
+
+        all_notifications = await _services.get_all_notifications(current_user=current_user, db=db)
+        all_notifications_json = json.dumps([notification.dict() for notification in all_notifications], default=str)
+        RedisResource.conn.publish("new_notification", all_notifications_json)
         return new_comment
 
 @router.get("/api/get_video_comments/{video_id}", response_model=List[_schemas.Comment])
@@ -165,3 +181,17 @@ async def get_video_comments(
         current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
         db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
     return await _services.get_video_comment(video_id=video_id, current_user=current_user, db=db)
+
+@router.get("/api/get_all_notifications", response_model=List[_schemas.Notification])
+async def get_all_notifications(
+     current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+     db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+     return await _services.get_all_notifications(current_user=current_user, db=db)
+
+@router.get("/api/read_all_notifications")
+async def get_all_notifications(
+     current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+     db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+
+     await _services.read_all_notifications(current_user=current_user, db=db)
+     return { "message" : "OK" }
