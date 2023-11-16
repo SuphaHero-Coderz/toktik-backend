@@ -174,18 +174,26 @@ async def create_comment(
 
         video = await _services.get_video(video_id=comment.video_id, current_user=current_user, db=db)
 
+        # Create a new notification for the owner of the video
         notification = _schemas.NotificationCreate(description=f"{current_user.username} commented on video '{video.video_name}'!")
         await _services.create_notification(notification_obj=notification, user_id=video.owner_id, current_user=current_user, db=db)
+
+        # Also create notifications for everyone subscribed to the video
         await _services.create_notification_for_subscribers_of(notification_obj=notification, video_id=video.id, current_user=current_user, db=db)
         
+        # If the user not subscribed to video (and also not owner), subscribe them upon comment
         subscribed = await _services.is_subscribed_to(video.id, current_user, db)
         if video.owner_id != current_user.id and not subscribed:
             subscription = _schemas.SubscriptionCreate(video_id=video.id)
             await _services.create_subscription(subscription_obj=subscription, current_user=current_user, db=db)
 
+        # Get list of all subscribers of the video
         subscribers = await _services.get_all_subscribers_of(video_id=video.id, current_user=current_user, db=db)
+
+        # Send relevant info to socket
         notification_json = json.dumps([{"current_user_id" : current_user.id, "video_owner_id" : video.owner_id, "subscribers" : [s.user_id for s in subscribers]}] + [notification.dict()], default=str)
         RedisResource.conn.publish("new_notification", notification_json)
+
         return new_comment
 
 @router.get("/api/get_video_comments/{video_id}", response_model=List[_schemas.Comment])
