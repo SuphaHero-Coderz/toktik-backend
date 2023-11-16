@@ -46,3 +46,17 @@ class Comment(_database.Base):
     user_id = _sql.Column(_sql.Integer, _sql.ForeignKey("users.id"))
     content = _sql.Column(_sql.String)
     date_commented = _sql.Column(_sql.DateTime, default=_dt.datetime.utcnow)
+
+class Notification(_database.Base):
+    __tablename__ = "notifications"
+    id = _sql.Column(_sql.Integer, primary_key=True, index=True)
+    user_id = _sql.Column(_sql.Integer, _sql.ForeignKey("users.id"))
+    description = _sql.Column(_sql.String)
+    read = _sql.Column(_sql.Boolean, default=False)
+    timestamp = _sql.Column(_sql.DateTime, default=_dt.datetime.utcnow)
+
+class Subscription(_database.Base):
+    __tablename__ = "subscriptions"
+    id = _sql.Column(_sql.Integer, primary_key=True, index=True)
+    user_id = _sql.Column(_sql.Integer, _sql.ForeignKey("users.id"))
+    video_id = _sql.Column(_sql.Integer, _sql.ForeignKey("videos.id"))

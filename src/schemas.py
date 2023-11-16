@@ -1,3 +1,4 @@
+import enum
 from typing import List, Optional
 import pydantic as _pydantic
 import datetime as _dt
@@ -73,5 +74,29 @@ class CommentCreate(_CommentBase):
     pass
 
 class Comment(_CommentBase):
+    id: Optional[int] = _pydantic.Field(default=None, primary_key=True)
+    user_id: int
+
+class _NotificationBase(_pydantic.BaseModel):
+    model_config = _pydantic.ConfigDict(from_attributes=True)
+    description: str
+
+class NotificationCreate(_NotificationBase):
+    pass
+
+class Notification(_NotificationBase):
+    id: Optional[int] = _pydantic.Field(default=None, primary_key=True)
+    user_id: int
+    read: bool
+    timestamp: _dt.datetime
+
+class _SubscriptionBase(_pydantic.BaseModel):
+    model_config = _pydantic.ConfigDict(from_attributes=True)
+    video_id: int
+
+class SubscriptionCreate(_SubscriptionBase):
+    pass
+
+class Subscription(_SubscriptionBase):
     id: Optional[int] = _pydantic.Field(default=None, primary_key=True)
     user_id: int

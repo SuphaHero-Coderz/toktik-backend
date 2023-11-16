@@ -92,7 +92,7 @@ async def create_token(user: _models.User):
         "id": user.id,
         "username": user.username,
         "hashed_password": user.hashed_password,
-        "exp": datetime.datetime.now(tz=timezone.utc) + datetime.timedelta(seconds=30)
+        "exp": datetime.datetime.now(tz=timezone.utc) + datetime.timedelta(seconds=600)
     }
     token = _jwt.encode(data, JWT_SECRET)
     return token
@@ -297,7 +297,87 @@ async def get_video_comment(video_id: int, current_user: _schemas.User, db: _orm
     return list(map(_schemas.Comment.model_validate, comments))
 
 
+async def create_notification(notification_obj: _schemas.NotificationCreate, user_id: int, current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    
+    notification_obj = _models.Notification(user_id=user_id, description=notification_obj.description, read=False)
+
+    db.add(notification_obj)
+    db.commit()
+    db.refresh(notification_obj)
+
+    return _schemas.NotificationCreate.model_validate(notification_obj)
+
+async def create_notification_for_subscribers_of(notification_obj: _schemas.NotificationCreate, video_id: int, current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+
+    subscriptions = db.query(_models.Subscription).filter(_models.Subscription.video_id == video_id)
+
+    for subscription in subscriptions:
+        await create_notification(notification_obj, subscription.user_id, current_user, db)
+
+    return _schemas.NotificationCreate.model_validate(notification_obj)
+
+async def get_all_notifications(user_id: int, current_user: _schemas.User, db: _orm.Session, max=50):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    
+    notifications = db.query(_models.Notification).filter(_models.Notification.user_id == user_id).order_by(_models.Notification.timestamp.desc())
+    return list(map(_schemas.Notification.model_validate, notifications))[:max]
+
+async def get_all_current_user_notifications(current_user: _schemas.User, db: _orm.Session, max=50):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    
+    notifications = db.query(_models.Notification).filter(_models.Notification.user_id == current_user.id).order_by(_models.Notification.timestamp.desc())
+    return list(map(_schemas.Notification.model_validate, notifications))[:max]
+
+async def read_all_notifications(current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        return []
+    
+    unread_notifications = db.query(_models.Notification).filter_by(user_id=current_user.id, read=False)
+
+    for notification in unread_notifications:
+        notification.read = True
+
+    db.commit()
+    
+    for notification in unread_notifications:
+        db.refresh(notification)
+    
+async def is_subscribed_to(video_id: int, current_user: _schemas.User, db: _orm.Session) -> bool:
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    subscribed = db.query(_models.Subscription).filter_by(video_id=video_id, user_id=current_user.id).first() is not None
+
+    return subscribed
+
+async def get_all_subscribers_of(video_id: int, current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    
+    subscriptions = db.query(_models.Subscription).filter(_models.Subscription.video_id == video_id)
+    return list(map(_schemas.Subscription.model_validate, subscriptions))
 
 
+async def create_subscription(subscription_obj: _schemas.SubscriptionCreate, current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    
+    subscription = _models.Subscription(user_id=current_user.id, video_id=subscription_obj.video_id)
 
+    db.add(subscription)
+    db.commit()
+    db.refresh(subscription)
 
+    return _schemas.SubscriptionCreate.model_validate(subscription)
+
+async def get_all_current_user_subscriptions(current_user: _schemas.User, db: _orm.Session):
+    if current_user is None:
+        raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
+    
+    subscriptions = db.query(_models.Subscription).filter(_models.Subscription.user_id == current_user.id)
+    return list(map(_schemas.Subscription.model_validate, subscriptions))
