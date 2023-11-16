@@ -1,5 +1,4 @@
-import enum
-from typing import List, Optional
+from typing import Optional
 import pydantic as _pydantic
 import datetime as _dt
 

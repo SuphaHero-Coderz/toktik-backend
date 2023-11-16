@@ -6,7 +6,6 @@ import src.db_services as _services
 from .routers import users, videos, processing, s3
 
 app = FastAPI()
-#socketio_app = socketio.ASGIApp(sio, app)
 
 _services.create_database()
 

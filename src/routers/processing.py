@@ -15,10 +15,10 @@ router = APIRouter(tags=["processing"])
 
 load_dotenv()
 
-
-
-#Redis credentials used to connect with Redis message broker
 class RedisResource:
+    """
+    Redis credentials used to connect with Redis message broker
+    """
     REDIS_QUEUE_LOCATION = os.getenv('REDIS_QUEUE', 'localhost')
     CHUNK_QUEUE = 'queue:chunk'
     ENCODE_QUEUE = 'queue:encode'
@@ -32,48 +32,73 @@ class RedisResource:
 
     conn = redis.Redis(host=host, *port)
 
-#push chunking work into workqueue
 @router.post("/api/chunk")
 def chunk(vid_info: VideoInformation):
-    RedisResource.conn.rpush(
-        RedisResource.CHUNK_QUEUE,
-        json.dumps(vid_info.__dict__))
-    # print("chunk")
-    return {"message": "OK"}
+    """
+    Pushes chunking job into work queue.
 
-# push encode work into workqueue
+    Args:
+        vid_info (VideoInformation): video information
+
+    Returns: object
+    """
+    RedisResource.conn.rpush(RedisResource.CHUNK_QUEUE, json.dumps(vid_info.__dict__))
+
+    return { "message": "OK" }
+
 @router.post("/api/encode")
 def encode(vid_info: VideoInformation):
-    RedisResource.conn.rpush(
-        RedisResource.ENCODE_QUEUE,
-        json.dumps(vid_info.__dict__))
-    # print("encode")
-    return {"message": "OK"}
+    """
+    Pushes encoding job into work queue.
 
-# push thumbnail work into workqueue
+    Args:
+        vid_info (VideoInformation): video information
+
+    Returns: object
+    """
+    RedisResource.conn.rpush(RedisResource.ENCODE_QUEUE, json.dumps(vid_info.__dict__))
+    
+    return { "message": "OK" }
+
 @router.post("/api/thumbnail")
 def thumbnail(vid_info: VideoInformation):
-    RedisResource.conn.rpush(
-        RedisResource.THUMBNAIL_QUEUE,
-        json.dumps(vid_info.__dict__))
-    # print("thumbnail")
-    return {"message": "OK"}
+    """
+    Pushes thumbnail generation job into work queue.
+
+    Args:
+        vid_info (VideoInformation): video information
+
+    Returns: object
+    """
+    RedisResource.conn.rpush(RedisResource.THUMBNAIL_QUEUE, json.dumps(vid_info.__dict__))
+    return { "message": "OK" }
 
 @router.post("/api/process_video/")
-async def process_video(
-        vid_info: VideoInformation,
-        current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
-        db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+async def process_video(vid_info: VideoInformation, current_user: _schemas.User = _fastapi.Depends(_services.get_current_user), db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+    """
+    Processes a video once it has been uploaded (begins by encoding it)
+
+    Args:
+        vid_info (VideoInformation): video information
+        current_user (_schemas.User, optional): current user. Defaults to _fastapi.Depends(_services.get_current_user).
+        db (_orm.Session, optional): database session. Defaults to _fastapi.Depends(_services.get_db_session).
+
+    Returns: object
+    """
     vid_info_db = _schemas.VideoCreate(
-            object_key = vid_info.object_key,
-            video_name = vid_info.video_name,
-            video_description = vid_info.video_description,
-            video_thumbnail = f"{os.getenv('CLOUDFRONT_ORIGIN_URL')}/{vid_info.object_key}/thumbnail.jpg",
-            processed = False,
-            views = 1,
-            likes = 0)
+        object_key = vid_info.object_key,
+        video_name = vid_info.video_name,
+        video_description = vid_info.video_description,
+        video_thumbnail = f"{os.getenv('CLOUDFRONT_ORIGIN_URL')}/{vid_info.object_key}/thumbnail.jpg",
+        processed = False,
+        views = 1,
+        likes = 0
+    )
+
     await _services.create_video(db=db, current_user=current_user, video=vid_info_db)
     await _services.create_like(db=db, current_user=current_user, video_info=vid_info_db)
+
     encode(vid_info)
+
     return {"message", "OK"}
 
