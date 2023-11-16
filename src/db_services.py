@@ -309,31 +309,31 @@ async def create_notification(notification_obj: _schemas.NotificationCreate, use
 
     return _schemas.NotificationCreate.model_validate(notification_obj)
 
-async def get_all_notifications(user_id: int, current_user: _schemas.User, db: _orm.Session):
+async def get_all_notifications(user_id: int, current_user: _schemas.User, db: _orm.Session, max=50):
     if current_user is None:
         raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
     
     notifications = db.query(_models.Notification).filter(_models.Notification.user_id == user_id).order_by(_models.Notification.timestamp.desc())
-    return list(map(_schemas.Notification.model_validate, notifications))
+    return list(map(_schemas.Notification.model_validate, notifications))[:max]
 
-async def get_all_current_user_notifications(current_user: _schemas.User, db: _orm.Session):
+async def get_all_current_user_notifications(current_user: _schemas.User, db: _orm.Session, max=50):
     if current_user is None:
         raise _fastapi.HTTPException(status_code=401, detail="Invalid Credentials")
     
     notifications = db.query(_models.Notification).filter(_models.Notification.user_id == current_user.id).order_by(_models.Notification.timestamp.desc())
-    return list(map(_schemas.Notification.model_validate, notifications))
+    return list(map(_schemas.Notification.model_validate, notifications))[:max]
 
 async def read_all_notifications(current_user: _schemas.User, db: _orm.Session):
     if current_user is None:
         return []
     
-    notifications = db.query(_models.Notification).filter(_models.Notification.user_id == current_user.id)
+    unread_notifications = db.query(_models.Notification).filter_by(user_id=current_user.id, read=False)
 
-    for notification in notifications:
+    for notification in unread_notifications:
         notification.read = True
 
     db.commit()
     
-    for notification in notifications:
+    for notification in unread_notifications:
         db.refresh(notification)
     
