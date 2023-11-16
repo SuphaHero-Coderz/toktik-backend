@@ -79,18 +79,18 @@ async def process_video_like(
 
     liked = await _services.get_liked_status(video_id=video_id, current_user=current_user, db=db)
 
+    # If our video is liked
     if bool(liked):
+        # Get the video information / video owner id
         video = await _services.get_video(video_id=video_id, current_user=current_user, db=db)
-        video_owner_id= video.owner_id
 
-        print(video)
-        print(video_owner_id)
+        # Create a new notification object
+        notification = _schemas.NotificationCreate(description=f"{current_user.username} liked your video '{video.video_name}'!")
+        await _services.create_notification(notification_obj=notification, user_id=video.owner_id, current_user=current_user, db=db)
 
-        notification = _schemas.NotificationCreate(description="Someone liked your video!")
-        await _services.create_notification(notification_obj=notification, user_id=video_owner_id, current_user=current_user, db=db)
-
-        all_notifications = await _services.get_all_notifications(user_id=video_owner_id, current_user=current_user, db=db)
-        all_notifications_json = json.dumps([{"user_id" : video_owner_id}] + [notification.dict() for notification in all_notifications], default=str)
+        # Send updated notifications to websocket
+        all_notifications = await _services.get_all_notifications(user_id=video.owner_id, current_user=current_user, db=db)
+        all_notifications_json = json.dumps([{"current_user_id" : current_user.id, "video_owner_id" : video.owner_id, "video_id" : video.id}] + [notification.dict() for notification in all_notifications], default=str)
         RedisResource.conn.publish("new_notification", all_notifications_json)
 
 @router.get("/api/get_liked_status/{video_id}")
@@ -174,13 +174,12 @@ async def create_comment(
         RedisResource.conn.publish("backend_comments", new_comments_json)
 
         video = await _services.get_video(video_id=comment.video_id, current_user=current_user, db=db)
-        video_owner_id = video.owner_id
 
-        notification = _schemas.NotificationCreate(description="Someone commented on your video!")
-        await _services.create_notification(notification_obj=notification, user_id=video_owner_id, current_user=current_user, db=db)
+        notification = _schemas.NotificationCreate(description=f"{current_user.username} commented on your video '{video.video_name}'!")
+        await _services.create_notification(notification_obj=notification, user_id=video.owner_id, current_user=current_user, db=db)
 
-        all_notifications = await _services.get_all_notifications(user_id=video_owner_id, current_user=current_user, db=db)
-        all_notifications_json = json.dumps([{"user_id" : video_owner_id}] + [notification.dict() for notification in all_notifications], default=str)
+        all_notifications = await _services.get_all_notifications(user_id=video.owner_id, current_user=current_user, db=db)
+        all_notifications_json = json.dumps([{"current_user_id" : current_user.id, "video_owner_id" : video.owner_id, "video_id" : video.id}] + [notification.dict() for notification in all_notifications], default=str)
         RedisResource.conn.publish("new_notification", all_notifications_json)
         return new_comment
 
