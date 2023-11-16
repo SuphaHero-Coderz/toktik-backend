@@ -54,3 +54,9 @@ class Notification(_database.Base):
     description = _sql.Column(_sql.String)
     read = _sql.Column(_sql.Boolean, default=False)
     timestamp = _sql.Column(_sql.DateTime, default=_dt.datetime.utcnow)
+
+class Subscription(_database.Base):
+    __tablename__ = "subscriptions"
+    id = _sql.Column(_sql.Integer, primary_key=True, index=True)
+    user_id = _sql.Column(_sql.Integer, _sql.ForeignKey("users.id"))
+    video_id = _sql.Column(_sql.Integer, _sql.ForeignKey("videos.id"))

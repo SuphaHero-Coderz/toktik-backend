@@ -89,3 +89,14 @@ class Notification(_NotificationBase):
     user_id: int
     read: bool
     timestamp: _dt.datetime
+
+class _SubscriptionBase(_pydantic.BaseModel):
+    model_config = _pydantic.ConfigDict(from_attributes=True)
+    video_id: int
+
+class SubscriptionCreate(_SubscriptionBase):
+    pass
+
+class Subscription(_SubscriptionBase):
+    id: Optional[int] = _pydantic.Field(default=None, primary_key=True)
+    user_id: int

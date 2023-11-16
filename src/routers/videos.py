@@ -89,9 +89,8 @@ async def process_video_like(
         await _services.create_notification(notification_obj=notification, user_id=video.owner_id, current_user=current_user, db=db)
 
         # Send updated notifications to websocket
-        all_notifications = await _services.get_all_notifications(user_id=video.owner_id, current_user=current_user, db=db)
-        all_notifications_json = json.dumps([{"current_user_id" : current_user.id, "video_owner_id" : video.owner_id, "video_id" : video.id}] + [notification.dict() for notification in all_notifications], default=str)
-        RedisResource.conn.publish("new_notification", all_notifications_json)
+        notification_json = json.dumps([{"current_user_id" : current_user.id, "video_owner_id" : video.owner_id, "video_id" : video.id}] + [notification.dict()], default=str)
+        RedisResource.conn.publish("new_notification", notification_json)
 
 @router.get("/api/get_liked_status/{video_id}")
 async def get_liked_status(
@@ -175,12 +174,18 @@ async def create_comment(
 
         video = await _services.get_video(video_id=comment.video_id, current_user=current_user, db=db)
 
-        notification = _schemas.NotificationCreate(description=f"{current_user.username} commented on your video '{video.video_name}'!")
+        notification = _schemas.NotificationCreate(description=f"{current_user.username} commented on video '{video.video_name}'!")
         await _services.create_notification(notification_obj=notification, user_id=video.owner_id, current_user=current_user, db=db)
+        await _services.create_notification_for_subscribers_of(notification_obj=notification, video_id=video.id, current_user=current_user, db=db)
+        
+        subscribed = await _services.is_subscribed_to(video.id, current_user, db)
+        if video.owner_id != current_user.id and not subscribed:
+            subscription = _schemas.SubscriptionCreate(video_id=video.id)
+            await _services.create_subscription(subscription_obj=subscription, current_user=current_user, db=db)
 
-        all_notifications = await _services.get_all_notifications(user_id=video.owner_id, current_user=current_user, db=db)
-        all_notifications_json = json.dumps([{"current_user_id" : current_user.id, "video_owner_id" : video.owner_id, "video_id" : video.id}] + [notification.dict() for notification in all_notifications], default=str)
-        RedisResource.conn.publish("new_notification", all_notifications_json)
+        subscribers = await _services.get_all_subscribers_of(video_id=video.id, current_user=current_user, db=db)
+        notification_json = json.dumps([{"current_user_id" : current_user.id, "video_owner_id" : video.owner_id, "subscribers" : [s.user_id for s in subscribers]}] + [notification.dict()], default=str)
+        RedisResource.conn.publish("new_notification", notification_json)
         return new_comment
 
 @router.get("/api/get_video_comments/{video_id}", response_model=List[_schemas.Comment])
@@ -203,3 +208,11 @@ async def get_all_notifications(
 
      await _services.read_all_notifications(current_user=current_user, db=db)
      return { "message" : "OK" }
+
+@router.get("/api/get_socket_info")
+async def get_all_subscriptions(
+     current_user: _schemas.User = _fastapi.Depends(_services.get_current_user),
+     db: _orm.Session = _fastapi.Depends(_services.get_db_session)):
+     subscriptions = await _services.get_all_current_user_subscriptions(current_user=current_user, db=db)
+     
+     return { "user_id" : current_user.id, "subscriptions" : subscriptions }
