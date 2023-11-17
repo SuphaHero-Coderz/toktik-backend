@@ -102,7 +102,7 @@ async def create_refresh_token(user: _models.User):
         "id": user.id,
         "username": user.username,
         "hashed_password": user.hashed_password,
-        "exp": datetime.datetime.now(tz=timezone.utc) + datetime.timedelta(seconds=300)
+        "exp": datetime.datetime.now(tz=timezone.utc) + datetime.timedelta(days=1)
     }
     refresh_token = _jwt.encode(data, JWT_REFRESH_SECRET)
     return refresh_token
